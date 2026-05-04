@@ -282,10 +282,16 @@ def _sanitize_schema_for_gemini(schema: Any) -> Any:
             out["type"] = "string"
             out["nullable"] = True
         else:
-            # Multi-type union without a clean null reduction — pick first and warn.
-            out["type"] = non_null[0] if non_null else t[0]
-            if has_null:
-                out["nullable"] = True
+            # Multi-type non-null unions (e.g. ["string", "integer", "null"])
+            # have no faithful Gemini equivalent. Silently picking one type
+            # changes the contract for callers who rely on the others, so
+            # fail loud and let the schema author rewrite it as anyOf or
+            # narrow to a single type.
+            raise ValueError(
+                f"Unsupported Gemini schema union: {t!r}. "
+                "Gemini accepts a single primitive type plus optional 'nullable: true'. "
+                "Rewrite as anyOf or pick a single type."
+            )
 
     if "properties" in out and isinstance(out["properties"], dict):
         out["properties"] = {k: _sanitize_schema_for_gemini(v) for k, v in out["properties"].items()}

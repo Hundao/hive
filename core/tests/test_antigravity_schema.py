@@ -5,6 +5,8 @@ Run with:
     pytest tests/test_antigravity_schema.py -v
 """
 
+import pytest
+
 from framework.llm.antigravity import _sanitize_schema_for_gemini
 
 
@@ -60,3 +62,12 @@ def test_pure_null_type_falls_back_to_string():
         "type": "string",
         "nullable": True,
     }
+
+
+def test_multi_type_non_null_union_raises():
+    """Silently picking one type would change the contract — fail loud instead."""
+    with pytest.raises(ValueError, match="Unsupported Gemini schema union"):
+        _sanitize_schema_for_gemini({"type": ["string", "integer", "null"]})
+
+    with pytest.raises(ValueError, match="Unsupported Gemini schema union"):
+        _sanitize_schema_for_gemini({"type": ["string", "integer"]})
