@@ -61,10 +61,12 @@ _IDE_STATE_DB_KEY = "antigravityUnifiedStateSync.oauthToken"
 
 _BASE_HEADERS: dict[str, str] = {
     # Mimic the Antigravity Electron app so the API accepts the request.
+    # Google deprecates older client versions over time, so this needs periodic
+    # bumping to match whatever the current Antigravity desktop release advertises.
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Antigravity/1.18.3 Chrome/138.0.7204.235 "
-        "Electron/37.3.1 Safari/537.36"
+        "(KHTML, like Gecko) Antigravity/1.23.2 Chrome/138.0.7204.235 "
+        "Electron/39.2.3 Safari/537.36"
     ),
     "X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
     "Client-Metadata": '{"ideType":"ANTIGRAVITY","platform":"MACOS","pluginType":"GEMINI"}',
