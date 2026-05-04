@@ -254,6 +254,50 @@ def _clean_tool_name(name: str) -> str:
     return name[:64]
 
 
+def _sanitize_schema_for_gemini(schema: Any) -> Any:
+    """Convert JSON Schema 2020-12 features to the OpenAPI 3.0 dialect Gemini accepts.
+
+    Gemini's function_declarations parser rejects union ``"type": ["string", "null"]``.
+    Translate any such union to a single type plus ``"nullable": true``. Recurse into
+    ``properties``, ``items``, and the ``anyOf``/``oneOf``/``allOf`` combinators.
+    """
+    if isinstance(schema, list):
+        return [_sanitize_schema_for_gemini(s) for s in schema]
+    if not isinstance(schema, dict):
+        return schema
+
+    out = dict(schema)
+    t = out.get("type")
+    if isinstance(t, list):
+        non_null = [x for x in t if x != "null"]
+        has_null = "null" in t
+        if len(non_null) == 1:
+            out["type"] = non_null[0]
+            if has_null:
+                out["nullable"] = True
+        elif not non_null and has_null:
+            # Pure null type: fall back to string-nullable.
+            out["type"] = "string"
+            out["nullable"] = True
+        else:
+            # Multi-type union without a clean null reduction — pick first and warn.
+            out["type"] = non_null[0] if non_null else t[0]
+            if has_null:
+                out["nullable"] = True
+
+    if "properties" in out and isinstance(out["properties"], dict):
+        out["properties"] = {k: _sanitize_schema_for_gemini(v) for k, v in out["properties"].items()}
+    if "items" in out:
+        out["items"] = _sanitize_schema_for_gemini(out["items"])
+    if "additionalProperties" in out and isinstance(out["additionalProperties"], dict):
+        out["additionalProperties"] = _sanitize_schema_for_gemini(out["additionalProperties"])
+    for combinator in ("anyOf", "oneOf", "allOf"):
+        if combinator in out:
+            out[combinator] = _sanitize_schema_for_gemini(out[combinator])
+
+    return out
+
+
 def _to_gemini_contents(
     messages: list[dict[str, Any]],
     thought_sigs: dict[str, str] | None = None,
@@ -555,11 +599,13 @@ class AntigravityProvider(LLMProvider):
                         {
                             "name": _clean_tool_name(t.name),
                             "description": t.description,
-                            "parameters": t.parameters
-                            or {
-                                "type": "object",
-                                "properties": {},
-                            },
+                            "parameters": _sanitize_schema_for_gemini(
+                                t.parameters
+                                or {
+                                    "type": "object",
+                                    "properties": {},
+                                }
+                            ),
                         }
                         for t in tools
                     ]
