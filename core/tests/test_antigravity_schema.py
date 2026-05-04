@@ -65,7 +65,7 @@ def test_pure_null_type_falls_back_to_string():
 
 
 def test_multi_type_non_null_union_raises():
-    """Silently picking one type would change the contract — fail loud instead."""
+    """Silently picking one type would change the contract; fail loud instead."""
     with pytest.raises(ValueError, match="Unsupported Gemini schema union"):
         _sanitize_schema_for_gemini({"type": ["string", "integer", "null"]})
 
